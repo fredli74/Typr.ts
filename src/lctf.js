@@ -190,7 +190,9 @@ Typr._lctf.readScriptTable = function(data, offset)
 	var obj = {};
 	
 	var defLangSysOff = bin.readUshort(data, offset);  offset+=2;
-	obj.default = Typr._lctf.readLangSysTable(data, offset0 + defLangSysOff);
+	if (defLangSysOff > 0) {
+		obj.default = Typr._lctf.readLangSysTable(data, offset0 + defLangSysOff);
+	}
 	
 	var langSysCount = bin.readUshort(data, offset);  offset+=2;
 	
