@@ -6,7 +6,7 @@ if (Typr.U == null) Typr.U = {};
 Typr.U.codeToGlyph = function (font, code) {
 	var cmap = font.cmap;
 
-	for (let tind of [cmap.p0e4, cmap.p3e1, cmap.p1e0, cmap.p0e3]) {
+	for (let tind of [cmap.p0e4, cmap.p3e1, cmap.p3e10, cmap.p0e3, cmap.p1e0]) {
 		if (tind == null) continue;
 		var tab = cmap.tables[tind];
 		if (tab.format == 0) {
