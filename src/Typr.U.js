@@ -6,47 +6,42 @@ if (Typr.U == null) Typr.U = {};
 Typr.U.codeToGlyph = function (font, code) {
 	var cmap = font.cmap;
 
-	var tind = -1;
-	if (cmap.p0e4 != null) tind = cmap.p0e4;
-	else if (cmap.p3e1 != null) tind = cmap.p3e1;
-	else if (cmap.p1e0 != null) tind = cmap.p1e0;
-	else if (cmap.p0e3 != null) tind = cmap.p0e3;
-
-	if (tind == -1) throw "no familiar platform and encoding!";
-
-	var tab = cmap.tables[tind];
-
-	if (tab.format == 0) {
-		if (code >= tab.map.length) return 0;
-		return tab.map[code];
-	} else if (tab.format == 4) {
-		var sind = -1;
-		for (var i = 0; i < tab.endCount.length; i++) {
-			if (code <= tab.endCount[i]) {
-				sind = i;
-				break;
+	for (let tind of [cmap.p0e4, cmap.p3e1, cmap.p3e10, cmap.p0e3, cmap.p1e0]) {
+		if (tind == null) continue;
+		var tab = cmap.tables[tind];
+		if (tab.format == 0) {
+			if (code >= tab.map.length) continue;
+			return tab.map[code];
+		} else if (tab.format == 4) {
+			var sind = -1;
+			for (var i = 0; i < tab.endCount.length; i++) {
+				if (code <= tab.endCount[i]) {
+					sind = i;
+					break;
+				}
 			}
-		}
-		if (sind == -1) return 0;
-		if (tab.startCount[sind] > code) return 0;
+			if (sind == -1) continue;
+			if (tab.startCount[sind] > code) continue;
 
-		var gli = 0;
-		if (tab.idRangeOffset[sind] != 0) {
-			gli = tab.glyphIdArray[(code - tab.startCount[sind]) + (tab.idRangeOffset[sind] >> 1) - (tab.idRangeOffset.length - sind)];
+			var gli = 0;
+			if (tab.idRangeOffset[sind] != 0) {
+				gli = tab.glyphIdArray[(code - tab.startCount[sind]) + (tab.idRangeOffset[sind] >> 1) - (tab.idRangeOffset.length - sind)];
+			} else {
+				gli = code + tab.idDelta[sind];
+			}
+			return gli & 0xFFFF;
+		} else if (tab.format == 12) {
+			if (code > tab.groups[tab.groups.length - 1][1]) continue;
+			for (var i = 0; i < tab.groups.length; i++) {
+				var grp = tab.groups[i];
+				if (grp[0] <= code && code <= grp[1]) return grp[2] + (code - grp[0]);
+			}
+			continue;
 		} else {
-			gli = code + tab.idDelta[sind];
+			throw "unknown cmap table format " + tab.format;
 		}
-		return gli & 0xFFFF;
-	} else if (tab.format == 12) {
-		if (code > tab.groups[tab.groups.length - 1][1]) return 0;
-		for (var i = 0; i < tab.groups.length; i++) {
-			var grp = tab.groups[i];
-			if (grp[0] <= code && code <= grp[1]) return grp[2] + (code - grp[0]);
-		}
-		return 0;
-	} else {
-		throw "unknown cmap table format " + tab.format;
 	}
+	return 0;
 }
 
 
