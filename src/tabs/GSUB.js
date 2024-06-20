@@ -99,6 +99,7 @@ Typr.GSUB.subt = function(data, ltype, offset, ltable)	// lookup type
 		}
 		return Typr.GSUB.subt(data, ltable.ltype, offset0+extOffset);
 	}
+	else console.warn("unsupported GSUB table LookupType", ltype, "format", tab.fmt);
 	//if(tab.coverage.indexOf(3)!=-1) console.warn(ltype, fmt, tab);
 	
 	return tab;

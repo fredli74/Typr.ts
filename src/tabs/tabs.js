@@ -13,7 +13,7 @@
 		var minor = data[offset];  offset++;
 		var hdrSize = data[offset];  offset++;
 		var offsize = data[offset];  offset++;
-		//console.log(major, minor, hdrSize, offsize);
+		//console.warn(major, minor, hdrSize, offsize);
 		
 		// Name INDEX
 		var ninds = [];
@@ -26,13 +26,13 @@
 		
 		// Top DICT INDEX
 		var tdinds = [];
-		offset = Typr.CFF.readIndex(data, offset, tdinds);  //console.log(tdinds);
+		offset = Typr.CFF.readIndex(data, offset, tdinds);  //console.warn(tdinds);
 		// Top DICT Data
 		var topDicts = [];
 		for(var i=0; i<tdinds.length-1; i++) topDicts.push( Typr.CFF.readDict(data, offset+tdinds[i], offset+tdinds[i+1]) );
 		offset += tdinds[tdinds.length-1];
 		var topdict = topDicts[0];
-		//console.log(topdict);
+		//console.warn(topdict);
 		
 		// String INDEX
 		var sinds = [];
@@ -56,7 +56,7 @@
 			for(var i=0; i<sinds.length-1; i++) cstr.push(bin.readBytes(data, offset+sinds[i], sinds[i+1]-sinds[i]));
 			//offset += sinds[sinds.length-1];
 			topdict.CharStrings = cstr;
-			//console.log(topdict.CharStrings);
+			//console.warn(topdict.CharStrings);
 		}
 		
 		// CID font
@@ -175,8 +175,8 @@
 		
 		var array = ['.notdef'];
 		var format = data[offset];  offset++;
-		//console.log("Encoding");
-		//console.log(format);
+		//console.warn("Encoding");
+		//console.warn(format);
 		
 		if(format==0)
 		{
@@ -299,7 +299,7 @@
 
 			//var cv = arr[arr.length-1];
 			//if(cv==undefined) throw "error";
-			//console.log()
+			//console.warn()
 		}	
 		return arr;
 	}
@@ -338,7 +338,7 @@
 				var s = "";
 				var chars = [0,1,2,3,4,5,6,7,8,9,".","e","e-","reserved","-","endOfNumber"];
 				for(var i=0; i<nibs.length; i++) s += chars[nibs[i]];
-				//console.log(nibs);
+				//console.warn(nibs);
 				val = parseFloat(s);
 			}
 			
@@ -379,7 +379,7 @@ Typr.cmap.parse = function(data, offset, length)
 	var version   = bin.readUshort(data, offset);  offset += 2;
 	var numTables = bin.readUshort(data, offset);  offset += 2;
 	
-	//console.log(version, numTables);
+	//console.warn(version, numTables);
 	
 	var offs = [];
 	obj.tables = [];
@@ -393,7 +393,7 @@ Typr.cmap.parse = function(data, offset, length)
 		
 		var id = "p"+platformID+"e"+encodingID;
 		
-		//console.log("cmap subtable", platformID, encodingID, noffset);
+		//console.warn("cmap subtable", platformID, encodingID, noffset);
 		
 		
 		var tind = offs.indexOf(noffset);
@@ -408,7 +408,7 @@ Typr.cmap.parse = function(data, offset, length)
 			else if(format== 4) subt = Typr.cmap.parse4(data, noffset);
 			else if(format== 6) subt = Typr.cmap.parse6(data, noffset);
 			else if(format==12) subt = Typr.cmap.parse12(data,noffset);
-			else console.log("unknown format: "+format, platformID, encodingID, noffset);
+			else console.warn("unknown format: "+format, platformID, encodingID, noffset);
 			obj.tables.push(subt);
 		}
 		
@@ -566,7 +566,7 @@ Typr.glyf._parseGlyf = function(font, g)
 		}
 		var x = 0, y = 0;
 		for(var i=0; i<crdnum; i++) { x += gl.xs[i]; y += gl.ys[i];  gl.xs[i]=x;  gl.ys[i]=y; }
-		//console.log(endPtsOfContours, instructionLength, instructions, flags, xCoordinates, yCoordinates);
+		//console.warn(endPtsOfContours, instructionLength, instructions, flags, xCoordinates, yCoordinates);
 	}
 	else
 	{
@@ -629,13 +629,13 @@ Typr.GPOS = {};
 Typr.GPOS.parse = function(data, offset, length, font) {  return Typr._lctf.parse(data, offset, length, font, Typr.GPOS.subt);  }
 
 
-Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
+Typr.GPOS.subt = function(data, ltype, offset, ltable)	// lookup type
 {
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
 	tab.fmt  = bin.readUshort(data, offset);  offset+=2;
 	
-	//console.log(ltype, tab.fmt);
+	//console.warn(ltype, tab.fmt);
 	
 	if(ltype==1 || ltype==2 || ltype==3 || ltype==7 || (ltype==8 && tab.fmt<=2)) {
 		var covOff  = bin.readUshort(data, offset);  offset+=2;
@@ -646,7 +646,7 @@ Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
 		var ones1 = Typr._lctf.numOfOnes(valFmt1);
 		if(valFmt1!=0)  tab.pos = Typr.GPOS.readValueRecord(data, offset, valFmt1);
 	}
-	else if(ltype==2) {
+	else if(ltype==2 && tab.fmt>=1 && tab.fmt<=2) {
 		var valFmt1 = bin.readUshort(data, offset);  offset+=2;
 		var valFmt2 = bin.readUshort(data, offset);  offset+=2;
 		var ones1 = Typr._lctf.numOfOnes(valFmt1);
@@ -691,17 +691,28 @@ Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
 				for(var j=0; j<class2Count; j++)
 				{
 					var value1 = null, value2 = null;
-					if(tab.valFmt1!=0) { value1 = Typr.GPOS.readValueRecord(data, offset, tab.valFmt1);  offset+=ones1*2; }
-					if(tab.valFmt2!=0) { value2 = Typr.GPOS.readValueRecord(data, offset, tab.valFmt2);  offset+=ones2*2; }
+					if(valFmt1!=0) { value1 = Typr.GPOS.readValueRecord(data, offset, valFmt1);  offset+=ones1*2; }
+					if(valFmt2!=0) { value2 = Typr.GPOS.readValueRecord(data, offset, valFmt2);  offset+=ones2*2; }
 					row.push({val1:value1, val2:value2});
 				}
 				tab.matrix.push(row);
 			}
 		}
 	}
-	else if(ltype==4) {
-		
+	else if(ltype==9 && tab.fmt==1) {
+		var extType = bin.readUshort(data, offset);  offset+=2;
+		var extOffset = bin.readUint(data, offset);  offset+=4;
+		if (ltable.ltype==9) {
+			ltable.ltype = extType;
+		} else if (ltable.ltype!=extType) {
+			throw "invalid extension substitution"; // all subtables must be the same type
+		}
+		return Typr.GPOS.subt(data, ltable.ltype, offset0+extOffset);
 	}
+	else console.warn("unsupported GPOS table LookupType", ltype, "format", tab.fmt);
+	/*else if(ltype==4) {
+		
+	}*/
 	return tab;
 }
 
@@ -721,7 +732,7 @@ Typr.GSUB = {};
 Typr.GSUB.parse = function(data, offset, length, font) {  return Typr._lctf.parse(data, offset, length, font, Typr.GSUB.subt);  }
 
 
-Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
+Typr.GSUB.subt = function(data, ltype, offset, ltable)	// lookup type
 {
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
@@ -736,7 +747,7 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 	
 	if(false) {}
 	//  Single Substitution Subtable
-	else if(ltype==1) {	
+	else if(ltype==1 && tab.fmt>=1 && tab.fmt<=2) {	
 		if(tab.fmt==1) {
 			tab.delta = bin.readShort(data, offset);  offset+=2;
 		}
@@ -753,11 +764,11 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 			var loff = bin.readUshort(data, offset);  offset+=2;
 			tab.vals.push(Typr.GSUB.readLigatureSet(data, offset0+loff));
 		}
-		//console.log(tab.coverage);
-		//console.log(tab.vals);
+		//console.warn(tab.coverage);
+		//console.warn(tab.vals);
 	} 
 	//  Contextual Substitution Subtable
-	else if(ltype==5) {
+	else if(ltype==5 && tab.fmt==2) {
 		if(tab.fmt==2) {
 			var cDefOffset = bin.readUshort(data, offset);  offset+=2;
 			tab.cDef = Typr._lctf.readClassDef(data, offset0 + cDefOffset);
@@ -769,10 +780,10 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 				tab.scset.push(  scsOff==0 ? null : Typr.GSUB.readSubClassSet(data, offset0 + scsOff)  );
 			}
 		}
-		//else console.log("unknown table format", tab.fmt);
+		//else console.warn("unknown table format", tab.fmt);
 	}
 	//*
-	else if(ltype==6) {
+	else if(ltype==6 && tab.fmt==3) {
 		/*
 		if(tab.fmt==2) {
 			var btDef = bin.readUshort(data, offset);  offset+=2;
@@ -804,9 +815,20 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 			var cnt = bin.readUshort(data, offset);  offset+=2;
 			tab.lookupRec = Typr.GSUB.readSubstLookupRecords(data, offset, cnt);
 		}
-		//console.log(tab);
+		//console.warn(tab);
 	} //*/
-	//if(tab.coverage.indexOf(3)!=-1) console.log(ltype, fmt, tab);
+	else if(ltype==7 && tab.fmt==1) {
+		var extType = bin.readUshort(data, offset);  offset+=2;
+		var extOffset = bin.readUint(data, offset);  offset+=4;
+		if (ltable.ltype==9) {
+			ltable.ltype = extType;
+		} else if (ltable.ltype!=extType) {
+			throw "invalid extension substitution"; // all subtables must be the same type
+		}
+		return Typr.GSUB.subt(data, ltable.ltype, offset0+extOffset);
+	}
+	else console.warn("unsupported GSUB table LookupType", ltype, "format", tab.fmt);
+	//if(tab.coverage.indexOf(3)!=-1) console.warn(ltype, fmt, tab);
 	
 	return tab;
 }
@@ -1035,7 +1057,7 @@ Typr.loca.parse = function(data, offset, length, font)
 	var obj = [];
 	
 	var ver = font.head.indexToLocFormat;
-	//console.log("loca", ver, length, 4*font.maxp.numGlyphs);
+	//console.warn("loca", ver, length, 4*font.maxp.numGlyphs);
 	var len = font.maxp.numGlyphs+1;
 	
 	if(ver==0) for(var i=0; i<len; i++) obj.push(bin.readUshort(data, offset+(i<<1))<<1);
@@ -1048,7 +1070,7 @@ Typr.loca.parse = function(data, offset, length, font)
 Typr.maxp = {};
 Typr.maxp.parse = function(data, offset, length)
 {
-	//console.log(data.length, offset, length);
+	//console.warn(data.length, offset, length);
 	
 	var bin = Typr._bin;
 	var obj = {};
@@ -1088,7 +1110,7 @@ Typr.name.parse = function(data, offset, length)
 	var count  = bin.readUshort(data, offset);  offset += 2;
 	var stringOffset = bin.readUshort(data, offset);  offset += 2;
 	
-	//console.log(format,count);
+	//console.warn(format,count);
 	
 	var names = [
 		"copyright",
@@ -1128,7 +1150,7 @@ Typr.name.parse = function(data, offset, length)
 		var nameID     = bin.readUshort(data, offset);  offset += 2;
 		var slen       = bin.readUshort(data, offset);  offset += 2;
 		var noffset    = bin.readUshort(data, offset);  offset += 2;
-		//console.log(platformID, encodingID, languageID.toString(16), nameID, length, noffset);
+		//console.warn(platformID, encodingID, languageID.toString(16), nameID, length, noffset);
 		
 		var cname = names[nameID];
 		var soff = offset0 + count*12 + noffset;
@@ -1140,14 +1162,14 @@ Typr.name.parse = function(data, offset, length)
 		else if(encodingID == 1) str = bin.readUnicode(data, soff, slen/2);
 		else if(encodingID == 3) str = bin.readUnicode(data, soff, slen/2);
 		
-		else if(platformID == 1) { str = bin.readASCII(data, soff, slen);  console.log("reading unknown MAC encoding "+encodingID+" as ASCII") }
+		else if(platformID == 1) { str = bin.readASCII(data, soff, slen);  console.warn("reading unknown MAC encoding "+encodingID+" as ASCII") }
 		else throw "unknown encoding "+encodingID + ", platformID: "+platformID;
 		
 		var tid = "p"+platformID+","+(languageID).toString(16);//Typr._platforms[platformID];
 		if(obj[tid]==null) obj[tid] = {};
-		obj[tid][cname] = str;
+		obj[tid][cname !== undefined ? cname : nameID] = str;
 		obj[tid]._lang = languageID;
-		//console.log(tid, obj[tid]);
+		//console.warn(tid, obj[tid]);
 	}
 	/*
 	if(format == 1)
@@ -1161,7 +1183,7 @@ Typr.name.parse = function(data, offset, length)
 	}
 	*/
 	
-	//console.log(obj);
+	//console.warn(obj);
 	
 	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0409) return obj[p];		// United States
 	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0000) return obj[p];		// Universal
@@ -1170,7 +1192,7 @@ Typr.name.parse = function(data, offset, length)
 	
 	var tname;
 	for(var p in obj) { tname=p; break; }
-	console.log("returning name table with languageID "+ obj[tname]._lang);
+	console.warn("returning name table with languageID "+ obj[tname]._lang);
 	return obj[tname];
 }
 
@@ -1335,12 +1357,12 @@ Typr.SVG._toPath = function(nds, pth, fill) {
 		if(tn=="g") Typr.SVG._toPath(nd.children, pth, cfl);
 		else if(tn=="path") {
 			pth.cmds.push(cfl?cfl:"#000000");
-			var d = nd.getAttribute("d");  //console.log(d);
-			var toks = Typr.SVG._tokens(d);  //console.log(toks);
+			var d = nd.getAttribute("d");  //console.warn(d);
+			var toks = Typr.SVG._tokens(d);  //console.warn(toks);
 			Typr.SVG._toksToPath(toks, pth);  pth.cmds.push("X");
 		}
 		else if(tn=="defs") {}
-		else console.log(tn, nd);
+		else console.warn(tn, nd);
 	}
 }
 
@@ -1395,7 +1417,7 @@ Typr.SVG._toksToPath = function(ts, pth) {
 					var x2=xi+ts[i++], y2=yi+ts[i++], x3=xi+ts[i++], y3=yi+ts[i++];  
 					cmds.push("C");  crds.push(x1,y1,x2,y2,x3,y3);  x=x3;  y=y3;
 				}
-				else console.log("Unknown SVG command "+cmd);
+				else console.warn("Unknown SVG command "+cmd);
 			}
 		}
 	}

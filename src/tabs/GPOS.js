@@ -84,6 +84,7 @@ Typr.GPOS.subt = function(data, ltype, offset, ltable)	// lookup type
 		}
 		return Typr.GPOS.subt(data, ltable.ltype, offset0+extOffset);
 	}
+	else console.warn("unsupported GPOS table LookupType", ltype, "format", tab.fmt);
 	/*else if(ltype==4) {
 		
 	}*/
