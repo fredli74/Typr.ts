@@ -6,7 +6,10 @@ if (Typr.U == null) Typr.U = {};
 Typr.U.codeToGlyph = function (font, code) {
 	var cmap = font.cmap;
 
-	for (let tind of [cmap.p0e4, cmap.p3e1, cmap.p3e10, cmap.p0e3, cmap.p1e0]) {
+	// The Mac Roman table (p1e0) is indexed by byte, not by code point: use it only when the font has no Unicode table
+	var tinds = [cmap.p0e4, cmap.p3e1, cmap.p3e10, cmap.p0e3];
+	if (tinds.every(function (t) { return t == null; })) tinds = [cmap.p1e0];
+	for (let tind of tinds) {
 		if (tind == null) continue;
 		var tab = cmap.tables[tind];
 		if (tab.format == 0) {
@@ -30,6 +33,10 @@ Typr.U.codeToGlyph = function (font, code) {
 				gli = code + tab.idDelta[sind];
 			}
 			return gli & 0xFFFF;
+		} else if (tab.format == 6) {
+			var gi = code - tab.firstCode;
+			if (gi < 0 || gi >= tab.glyphIdArray.length) continue;
+			return tab.glyphIdArray[gi];
 		} else if (tab.format == 12) {
 			if (code > tab.groups[tab.groups.length - 1][1]) continue;
 			for (var i = 0; i < tab.groups.length; i++) {
