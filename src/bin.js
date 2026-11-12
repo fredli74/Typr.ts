@@ -58,11 +58,9 @@ Typr._bin = {
 		}
 		return s;
 	},
-	_tdec : typeof window !== 'undefined' && window["TextDecoder"] ? new window["TextDecoder"]() : null,
 	readUTF8 : function(buff, p, l) {
-		var tdec = Typr._bin._tdec;
-		if(tdec && p==0 && l==buff.length) return tdec["decode"](buff);
-		return Typr._bin.readASCII(buff,p,l);
+		// the view throws past the end; the copy is never shared or resizable, which TextDecoder rejects
+		return new TextDecoder()["decode"](new Uint8Array(new Uint8Array(buff.buffer, buff.byteOffset + p, l)));
 	},
 	readBytes : function(buff, p, l)
 	{
