@@ -220,63 +220,44 @@ Typr.U.getPairAdjustment = function (font, g1, g2) {
 }
 
 Typr.U.stringToGlyphs = function (font, str) {
-	var gls = [];
+	var gls = [], chs = [];  // per code point: its glyph, and the code point as a string
 	for (var i = 0; i < str.length; i++) {
-		var cc = str.codePointAt(i); if (cc > 0xffff) i++;
-		gls.push(Typr.U.codeToGlyph(font, cc));
+		var cc = str.codePointAt(i), ch = str.substr(i, cc > 0xffff ? 2 : 1);  i += ch.length - 1;
+		var at = gls.length;
+		// A pre-base vowel sign is drawn before its syllable: step back over the consonant, its nukta,
+		// and each (consonant [nukta] virama) before it. Nukta and virama sit at the same offset in each block.
+		if (Typr.U._preBase.indexOf(ch) != -1) {
+			var nukta = String.fromCharCode((cc & ~0x7F) + 0x3C), virama = String.fromCharCode((cc & ~0x7F) + 0x4D);
+			at--;  if (chs[at] == nukta) at--;
+			while (chs[at - 1] == virama) {  at -= 2;  if (chs[at] == nukta) at--;  }
+			at = Math.max(at, 0);
+		}
+		gls.splice(at, 0, Typr.U.codeToGlyph(font, cc));
+		chs.splice(at, 0, ch);
 	}
-	for (var i = 0; i < str.length; i++) {
-		var cc = str.codePointAt(i);  //
-		if (cc == 2367) { var t = gls[i - 1]; gls[i - 1] = gls[i]; gls[i] = t; }
-		//if(cc==2381) {  var t=gls[i+1];  gls[i+1]=gls[i];  gls[i]=t;  }
-		if (cc > 0xffff) i++;
-	}
-	//console.warn(gls.slice(0));
-
-	//console.warn(gls);  return gls;
 
 	var gsub = font["GSUB"]; if (gsub == null) return gls;
 	var llist = gsub.lookupList, flist = gsub.featureList;
 
-	var cligs = [
-		"rlig",
-		"liga",
-		"mset",
-		"isol",
-		"init",
-		"fina",
-		"medi",
-		"half",
-		"pres",
-		"blws" /* Tibetan fonts like Himalaya.ttf */
-	];
-
-	//console.warn(gls.slice(0));
-	var tused = [];
+	// Features run in stages, in this order (as in HarfBuzz); within a stage, lookups run in LookupList order.
+	// A lookup shared by several features runs once, in the first stage that selects it.
+	// Stages 0-3 are the word-position forms, applied only at glyphs in that position.
+	var stageOf = { isol: 0, fina: 1, medi: 2, init: 3, rlig: 4, mset: 5, half: 6, pres: 7, blws: 7 /* Tibetan fonts like Himalaya.ttf */, liga: 8 };
+	var stage = [], wps = chs.map(function (c, ci) {  return stageOf[Typr.U._getWPfeature(chs, ci)];  });
 	for (var fi = 0; fi < flist.length; fi++) {
-		var fl = flist[fi];
-		if (cligs.indexOf(fl.tag) == -1) continue;
-		//if(fl.tag=="blwf") continue;
-		//console.warn(fl);
-		//console.warn(fl.tag);
-		for (var ti = 0; ti < fl.tab.length; ti++) {
-			if (tused[fl.tab[ti]]) continue;
-			tused[fl.tab[ti]] = true;
-			var tab = llist[fl.tab[ti]];
-			//console.warn(fl.tab[ti], tab.ltype);
-			//console.warn(fl.tag, tab);
-			for (var ci = 0; ci < gls.length; ci++) {
-				var feat = Typr.U._getWPfeature(str, ci);
-				if ("isol,init,fina,medi".indexOf(fl.tag) != -1 && fl.tag != feat) continue;
-
-				Typr.U._applySubs(gls, ci, tab, llist);
-			}
-		}
+		var s = stageOf[flist[fi].tag];  if (s == null) continue;
+		for (var ti = 0; ti < flist[fi].tab.length; ti++) {  var l = flist[fi].tab[ti];  if (stage[l] == null || s < stage[l]) stage[l] = s;  }
+	}
+	for (var si = 0; si <= 8; si++) for (var li = 0; li < llist.length; li++) {
+		if (stage[li] !== si) continue;
+		for (var ci = 0; ci < gls.length; ci++) if (si > 3 || wps[ci] == si) Typr.U._applySubs(gls, ci, llist[li], llist);
 	}
 
 	return gls;
 }
-Typr.U._getWPfeature = function (str, ci) {  // get Word Position feature
+// Pre-base (Indic_Positional_Category=Left) vowel signs: Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Malayalam
+Typr.U._preBase = "\u093F\u094E\u09BF\u09C7\u09C8\u0A3F\u0ABF\u0B47\u0BC6\u0BC7\u0BC8\u0D46\u0D47\u0D48";
+Typr.U._getWPfeature = function (str, ci) {  // get Word Position feature; str: one code point string per glyph
 	var wsep = "\n\t\" ,.:;!?()  ،";
 	var R = "آأؤإاةدذرزوٱٲٳٵٶٷڈډڊڋڌڍڎڏڐڑڒړڔڕږڗژڙۀۃۄۅۆۇۈۉۊۋۍۏےۓەۮۯܐܕܖܗܘܙܞܨܪܬܯݍݙݚݛݫݬݱݳݴݸݹࡀࡆࡇࡉࡔࡧࡩࡪࢪࢫࢬࢮࢱࢲࢹૅેૉ૊૎૏ૐ૑૒૝ૡ૤૯஁ஃ஄அஉ஌எஏ஑னப஫஬";
 	var L = "ꡲ્૗";
