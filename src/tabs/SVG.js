@@ -1,5 +1,5 @@
 Typr.SVG = {};
-Typr.SVG.parse = function(data, offset, length)
+Typr.SVG.parse = function(data, offset, length, font)
 {
 	var bin = Typr._bin;
 	var obj = { entries: []};
@@ -13,6 +13,7 @@ Typr.SVG.parse = function(data, offset, length)
 	offset = svgDocIndexOffset + offset0;
 
 	var numEntries = bin.readUshort(data, offset);	offset += 2;
+	var docs = {}, prevEnd = -1;  // documents decoded so far, by offset
 
 	for(var i=0; i<numEntries; i++)
 	{
@@ -21,9 +22,15 @@ Typr.SVG.parse = function(data, offset, length)
 		var svgDocOffset = bin.readUint  (data, offset);  offset += 4;
 		var svgDocLength = bin.readUint  (data, offset);  offset += 4;
 
-		var sbuf = new Uint8Array(data.buffer, offset0 + svgDocOffset + svgDocIndexOffset, svgDocLength);
-		var svg = bin.readUTF8(sbuf, 0, sbuf.length);
-		
+		// the spec requires sorted, non-overlapping records within numGlyphs; this also bounds the loop below
+		if(startGlyphID <= prevEnd || startGlyphID > endGlyphID || endGlyphID >= font.maxp.numGlyphs) throw "invalid SVG document record";
+		prevEnd = endGlyphID;
+
+		var start = offset0 + svgDocIndexOffset + svgDocOffset;
+		// gzip-compressed documents (1F 8B) are left out: nothing here inflates them, so those glyphs draw their outline
+		if(data[start]==0x1F && data[start+1]==0x8B) continue;
+		var svg = docs[start] || (docs[start] = bin.readUTF8(data, start, svgDocLength));
+
 		for(var f=startGlyphID; f<=endGlyphID; f++) {
 			obj.entries[f] = svg;
 		}
@@ -31,18 +38,17 @@ Typr.SVG.parse = function(data, offset, length)
 	return obj;
 }
 
-Typr.SVG.toPath = function(str)
+Typr.SVG.toPath = function(str, gid)
 {
 	var pth = {cmds:[], crds:[]};
-	if(str==null) return pth;
 	
 	var prsr = new DOMParser();
 	var doc = prsr["parseFromString"](str,"image/svg+xml");
 	
-	var svg = doc.firstChild;  while(svg.tagName!="svg") svg = svg.nextSibling;
-	var vb = svg.getAttribute("viewBox");
+	var vb = doc.documentElement.getAttribute("viewBox");
 	if(vb) vb = vb.trim().split(" ").map(parseFloat);  else   vb = [0,0,1000,1000];
-	Typr.SVG._toPath(svg.children, pth);
+	// a document can describe several glyphs; the spec names each one's element id="glyph<gid>"
+	Typr.SVG._toPath([doc.getElementById("glyph"+gid)], pth);
 	for(var i=0; i<pth.crds.length; i+=2) {
 		var x = pth.crds[i], y = pth.crds[i+1];
 		x -= vb[0];
@@ -58,7 +64,7 @@ Typr.SVG._toPath = function(nds, pth, fill) {
 	for(var ni=0; ni<nds.length; ni++) {
 		var nd = nds[ni], tn = nd.tagName;
 		var cfl = nd.getAttribute("fill");  if(cfl==null) cfl = fill;
-		if(tn=="g") Typr.SVG._toPath(nd.children, pth, cfl);
+		if(tn=="g" || tn=="svg") Typr.SVG._toPath(nd.children, pth, cfl);  // the glyph id can sit on the root <svg>
 		else if(tn=="path") {
 			pth.cmds.push(cfl?cfl:"#000000");
 			var d = nd.getAttribute("d");  //console.warn(d);

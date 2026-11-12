@@ -54,10 +54,11 @@ Typr.U.codeToGlyph = function (font, code) {
 
 Typr.U.glyphToPath = function (font, gid) {
 	var path = { cmds: [], crds: [] };
-	if (font.SVG && font.SVG.entries[gid]) {
-		var p = font.SVG.entries[gid]; if (p == null) return path;
+	// without DOMParser (Workers, Node) the SVG glyph falls back to its outline, which the spec requires the font to have
+	if (font.SVG && font.SVG.entries[gid] && typeof DOMParser != "undefined") {
+		var p = font.SVG.entries[gid];
 		if (typeof p == "string") {
-			p = Typr.SVG.toPath(p);
+			p = Typr.SVG.toPath(p, gid);
 			font.SVG.entries[gid] = p;
 		}
 		return p;
